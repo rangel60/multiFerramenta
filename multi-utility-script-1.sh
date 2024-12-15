@@ -373,9 +373,59 @@ configurar_minidlna() {
     done
 }
 
+# Função para adicionar o programa ao menu
+adicionar_ao_menu() {
+    local caminho_programa=$(zenity --file-selection --title="Selecione o programa para adicionar ao menu")
+
+    if [[ -z "$caminho_programa" ]]; then
+        zenity --error --title="Erro" --text="Nenhum arquivo selecionado!"
+        return
+    fi
+
+    local nome_programa=$(basename "$caminho_programa" | sed 's/\.[^\.]*$//')
+    local arquivo_menu="$HOME/.local/share/applications/${nome_programa}.desktop"
+
+    local icone=$(zenity --file-selection --title="Escolha um ícone (opcional)" \
+        --file-filter="Imagens (PNG, JPG, SVG) | *.png *.jpg *.jpeg *.svg" \
+        --file-filter="Todos os arquivos | *" 2>/dev/null)
+
+    cat <<EOF > "$arquivo_menu"
+[Desktop Entry]
+Type=Application
+Exec="$caminho_programa"
+Path=${caminho_programa%/*}
+Hidden=false
+NoDisplay=false
+Terminal=false
+Categories=Other;
+Name=$nome_programa
+Comment=Adicionado ao menu na categoria Scripts
+EOF
+
+    if [[ -n "$icone" ]]; then
+        echo "Icon=$icone" >> "$arquivo_menu"
+    fi
+
+    chmod +x "$arquivo_menu"
+
+    if [[ -f "$arquivo_menu" ]]; then
+        zenity --info --title="Sucesso" --text="O programa foi adicionado ao menu na categoria Scripts com sucesso!"
+
+        if command -v cinnamon-launcher &> /dev/null; then
+            cinnamon-launcher --replace &
+        elif command -v killall &> /dev/null; then
+            killall -HUP mate-panel
+        else
+            zenity --info --text="Não foi possível atualizar o menu automaticamente."
+        fi
+    else
+        zenity --error --title="Erro" --text="Falha ao criar o item no menu."
+    fi
+}
+
 # Menu Principal
 while true; do
-    escolha=$(zenity --list --text="<span color='blue' font='15'>Multi </span><span color='red' font='14'>FERRAMENTA</span>" --height=430 --width=370\
+    escolha=$(zenity --list --text="<span color='blue' font='15'>Mult </span><span color='red' font='14'>FERRAMENTA</span>" --height=430 --width=370\
         --column="Opção" --column="Descrição" \
         "1" "Gerar M3U - YouTube (Link Único)" \
         "2" "Gerar M3U - YouTube (Playlist)" \
@@ -388,8 +438,9 @@ while true; do
         "9" "Fatsort" \
         "10" "Gerar lista txt" \
         "11" "Configurar MiniDLNA" \
-"12" "ZipaTudo" \
-        "13" "Sair")
+        "12" "ZipaTudo" \
+        "13" "Adicionar programa ao menu" \
+        "14" "Sair")
 
     case $escolha in
         1) gerar_m3u_youtube_link ;;
@@ -404,7 +455,8 @@ while true; do
         10) listar_arquivos ;;
         11) configurar_minidlna ;;
         12) ZIPATUDO ;;
-        13) exit ;;
+        13) adicionar_ao_menu ;;
+        14) exit ;;
         *) zenity --error --text="Opção inválida!" ;;
     esac
 done
