@@ -423,6 +423,56 @@ EOF
     fi
 }
 
+# Função para gerar M3U/M3U8
+generate_playlist() {
+    # Input de URL do YouTube via Zenity
+    youtube_url=$(zenity --entry --title="Gerador de Playlist M3U/M3U8" \
+        --text="Insira a URL do vídeo ao vivo do YouTube:")
+
+    # Se o usuário cancelar
+    if [ -z "$youtube_url" ]; then
+        zenity --error --text="Nenhuma URL inserida. Operação cancelada."
+        exit 1
+    fi
+
+    # Escolha do tipo de playlist
+    playlist_type=$(zenity --list --radiolist \
+        --title="Tipo de Playlist" --text="Selecione o formato da playlist:" \
+        --column="Selecionado" --column="Formato" \
+        TRUE "M3U8" FALSE "M3U" --height=200)
+
+    if [ -z "$playlist_type" ]; then
+        zenity --error --text="Nenhum formato selecionado. Operação cancelada."
+        exit 1
+    fi
+
+    # Extraindo URL M3U8 com yt-dlp
+    zenity --info --text="Extraindo a URL HLS...\nPor favor, aguarde."
+    hls_url=$(yt-dlp -g -f "best" "$youtube_url" 2>/dev/null)
+
+    if [ -z "$hls_url" ]; then
+        zenity --error --text="Não foi possível extrair a URL HLS.\nVerifique a URL e tente novamente."
+        exit 1
+    fi
+
+    # Salvando a playlist
+    output_file=$(zenity --file-selection --save --title="Salvar Playlist" \
+        --confirm-overwrite --filename="playlist.$(echo $playlist_type | tr '[:upper:]' '[:lower:]')")
+
+    if [ -z "$output_file" ]; then
+        zenity --error --text="Nenhum arquivo selecionado. Operação cancelada."
+        exit 1
+    fi
+
+    # Criando arquivo de playlist
+    echo "#EXTM3U" > "$output_file"
+    echo "#EXTINF:-1,Live Stream" >> "$output_file"
+    echo "$hls_url" >> "$output_file"
+
+    zenity --info --text="Playlist gerada com sucesso:\n$output_file"
+}
+
+
 # Menu Principal
 while true; do
     escolha=$(zenity --list --text="<span color='blue' font='15'>Mult </span><span color='red' font='14'>FERRAMENTA</span>" --height=430 --width=370\
@@ -440,7 +490,8 @@ while true; do
         "11" "Configurar MiniDLNA" \
         "12" "ZipaTudo" \
         "13" "Adicionar programa ao menu" \
-        "14" "Sair")
+"14" "Youtube LIVE"  \
+     "14" "Sair")
 
     case $escolha in
         1) gerar_m3u_youtube_link ;;
@@ -456,7 +507,8 @@ while true; do
         11) configurar_minidlna ;;
         12) ZIPATUDO ;;
         13) adicionar_ao_menu ;;
-        14) exit ;;
+14) generate_playlist ;;
+        15) exit ;;
         *) zenity --error --text="Opção inválida!" ;;
     esac
 done
